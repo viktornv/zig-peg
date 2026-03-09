@@ -1,0 +1,9 @@
+# Zig build outputs
+.zig-cache/
+zig-out/
+
+# Common temp/editor files
+*.tmp
+*.temp
+Thumbs.db
+.DS_Store
