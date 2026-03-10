@@ -67,6 +67,13 @@ fn expectFail(input: []const u8) !void {
     } else |_| {}
 }
 
+fn countTag(node: peg.Node, tag: []const u8) usize {
+    var count: usize = 0;
+    if (std.mem.eql(u8, node.tag, tag)) count += 1;
+    for (node.children) |child| count += countTag(child, tag);
+    return count;
+}
+
 test "graphql strict accepts practical documents" {
     try expectParseAll("query Q($id: ID!) { user(id: $id) { id name } }");
     try expectParseAll("fragment UserFields on User { id name } query { me { ...UserFields } }");
@@ -77,4 +84,44 @@ test "graphql strict rejects reserved names" {
     try expectFail("query __Q { me { id } }");
     try expectFail("query { __typename }");
     try expectFail("fragment on on User { id }");
+}
+
+test "graphql strict rejects malformed documents" {
+    try expectFail("query { user(id: ) { id } }");
+    try expectFail("query { user(id: 1) ");
+    try expectFail("query Q($id: ID!) { user(id: $id) { id ");
+}
+
+test "graphql strict supports directives and variable defaults" {
+    try expectParseAll(
+        "query Q($id: ID! = 1) @trace { user(id: $id) @include(if: true) { id name } }",
+    );
+}
+
+test "graphql strict tree structure smoke" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+
+    const input = "query Q($id: ID!) { user(id: $id) { id name } }";
+    const r = try gql.parse(arena.allocator(), "document", input);
+    try std.testing.expectEqualStrings("document", r.node.tag);
+    try std.testing.expect(countTag(r.node, "operation_def") == 1);
+    try std.testing.expect(countTag(r.node, "field") >= 3);
+}
+
+test "graphql strict detailed error reports location" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+
+    const bad = "query { user(id: ) { id } }";
+    const d = gql.parseDetailed(arena.allocator(), "document", bad);
+    switch (d) {
+        .ok => return error.ShouldHaveFailed,
+        .err => |e| {
+            try std.testing.expectEqual(peg.ParseErrorClass.syntax, e.class);
+            try std.testing.expect(e.pos > 0);
+            try std.testing.expect(e.col > 0);
+            try std.testing.expect(e.expected_count >= 1);
+        },
+    }
 }

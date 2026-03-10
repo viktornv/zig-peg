@@ -161,3 +161,20 @@ test "http strict invalid content length" {
 test "http strict conflicting body headers" {
     try expectStrictFail("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nTransfer-Encoding: chunked\r\n\r\nhello", error.ConflictingBodyHeaders);
 }
+
+test "http strict accepts case-insensitive header names" {
+    try expectParseStrict("HTTP/1.1 200 OK\r\ncontent-length: 5\r\n\r\nhello");
+    try expectParseStrict("HTTP/1.1 200 OK\r\nTRANSFER-ENCODING: chunked\r\n\r\n4\r\ntest\r\n0\r\n\r\n");
+}
+
+test "http strict detects chunked token in list" {
+    try expectStrictFail(
+        "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nTransfer-Encoding: gzip, chunked\r\n\r\nhello",
+        error.ConflictingBodyHeaders,
+    );
+}
+
+test "http strict invalid framing still fails parse" {
+    try expectStrictFail("GET / HTTP/1.1\r\nHost: x\r\n", error.ParseFailed);
+    try expectStrictFail("HTTP/1.1 200\r\n\r\n", error.ParseFailed);
+}

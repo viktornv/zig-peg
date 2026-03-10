@@ -23,6 +23,14 @@ fn expectParseFull(input: []const u8) !void {
     std.debug.print("  OK\n", .{});
 }
 
+fn expectFail(input: []const u8) !void {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    if (ini.parse(arena.allocator(), "file", input)) |r| {
+        if (r.pos == input.len) return error.ShouldHaveFailed;
+    } else |_| {}
+}
+
 fn parseFile(allocator: std.mem.Allocator, input: []const u8) !peg.ParseSuccess {
     return ini.parse(allocator, "file", input);
 }
@@ -114,4 +122,27 @@ test "complex ini" {
     const section_count = countAll(result.node, "section");
     try std.testing.expectEqual(@as(usize, 3), section_count);
     std.debug.print("  OK: complex ini ({} sections)\n", .{section_count});
+}
+
+test "invalid ini inputs" {
+    std.debug.print("\n-- ini: invalid --\n", .{});
+    try expectFail("[broken\nkey=value\n");
+    try expectFail("[section]\n=value\n");
+    try expectFail("[]\nkey=value\n");
+}
+
+test "ini detailed error has position" {
+    std.debug.print("\n-- ini: detailed error --\n", .{});
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const d = ini.parseDetailed(arena.allocator(), "file", "[broken\n");
+    switch (d) {
+        .ok => return error.ShouldHaveFailed,
+        .err => |e| {
+            try std.testing.expectEqual(peg.ParseErrorClass.syntax, e.class);
+            try std.testing.expect(e.line >= 1);
+            try std.testing.expect(e.col >= 1);
+            try std.testing.expect(e.expected_count >= 1);
+        },
+    }
 }

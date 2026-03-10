@@ -36,3 +36,12 @@ Examples are grouped by domain and mapped to dedicated test commands.
 
 - All suites: `zig build test`
 - Core engine tests only: `zig build test-main`
+
+## Example Test Minimum
+
+For each `examples/*/*.zig`, keep at least this minimum:
+
+- Happy-path parse tests for the main grammar constructs.
+- Invalid input tests (`expectFail`/error checks), not just successful parses.
+- At least one tree/structure assertion (`countTag`/`expectEqual*`) to verify AST shape.
+- Detailed error coverage (`parseDetailed`) for grammars where diagnostics matter.

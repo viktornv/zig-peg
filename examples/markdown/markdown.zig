@@ -219,3 +219,30 @@ test "empty" {
     std.debug.print("\n-- md: empty --\n", .{});
     try expectFail("");
 }
+
+test "invalid markdown cases" {
+    std.debug.print("\n-- md: invalid --\n", .{});
+    // These inputs start with tokens that cannot be consumed as plain text,
+    // and are also incomplete for their corresponding inline constructs.
+    try expectFail("*\n");
+    try expectFail("`\n");
+    try expectFail("[\n");
+    try expectFail("!\n");
+}
+
+test "markdown detailed errors" {
+    std.debug.print("\n-- md: detailed errors --\n", .{});
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const bad = "[broken](\n";
+    const d = md.parseDetailed(arena.allocator(), "document", bad);
+    switch (d) {
+        .ok => return error.ShouldHaveFailed,
+        .err => |e| {
+            try std.testing.expectEqual(peg.ParseErrorClass.syntax, e.class);
+            try std.testing.expect(e.line >= 1);
+            try std.testing.expect(e.col >= 1);
+            try std.testing.expect(e.expected_count >= 1);
+        },
+    }
+}

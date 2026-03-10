@@ -8,7 +8,7 @@ on:
       - master
 
 jobs:
-  test:
+  test-smoke:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -31,3 +31,17 @@ jobs:
 
       - name: Run zig build ${{ matrix.step }}
         run: zig build ${{ matrix.step }}
+
+  test-all:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.1
+
+      - name: Run full test suite
+        run: zig build test
